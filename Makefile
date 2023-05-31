@@ -1,6 +1,7 @@
 ROOT ?=
 DEFUSRBIN ?= /usr/bin/
 DEFSBIN ?= /sbin/
+MANDIR ?= /usr/share/man/
 STATIC_LIBDIR ?= /usr/lib/
 CC ?= gcc
 AR ?= ar
@@ -37,13 +38,13 @@ install: install-libssp install-progs
 
 install-progs: getconf getent iconv cmd/ldconfig
 	for program in getconf getent iconv ; do \
-	        $(INSTALL) -c -m 755 $$program $(DEFUSRBIN) ; \
+	        $(INSTALL) -c -m 755 $$program $(ROOT)$(DEFUSRBIN) ; \
+		$(INSTALL) -c -m 644 ./man/$$program.1 $(ROOT)$(MANDIR) ; \
 	done
-	$(INSTALL) -c -m 755 cmd/ldconfig $(DEFSBIN)
-
+	$(INSTALL) -c -m 755 cmd/ldconfig $(ROOT)$(DEFSBIN)
 
 install-libssp: libssp_nonshared
-	$(INSTALL) -c -m 664 ./libssp_nonshared.a $(STATIC_LIBDIR)
+	$(INSTALL) -c -m 664 ./libssp_nonshared.a $(ROOT)$(STATIC_LIBDIR)
 
 clean:
 	rm -f *.o *.a getconf getent iconv *~

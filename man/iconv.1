@@ -1,0 +1,84 @@
+.\" $NetBSD: iconv.1,v 1.5 2013/05/12 12:25:12 rodent Exp $
+.\"
+.\" Copyright (C) 2003 Citrus Project,
+.\" Copyright (C) 2023 Pindorama
+.\"
+.\" SPDX-Licence-Identifier: BSD-2-Clause
+.\"
+.Dd May 30, 2023
+.Dt ICONV 1
+.Os musl-extra
+.Sh NAME
+.Nm iconv
+.Nd codeset conversion utility
+.Sh SYNOPSIS
+.Nm
+.Op Fl cs
+.Fl f
+.Ar from_name
+.Fl t
+.Ar to_name
+.Op Ar file ...
+.Nm
+.Fl f
+.Ar from_name
+.Op Fl cs
+.Op Fl t Ar to_name
+.Op Ar file ...
+.Nm
+.Fl t
+.Ar to_name
+.Op Fl cs
+.Op Fl f Ar from_name
+.Op Ar file ...
+.Nm
+.Fl l
+.Sh DESCRIPTION
+The
+.Nm
+utility converts the codeset of
+.Ar file
+(or from standard input if no file is specified) from codeset
+.Ar from_name
+to codeset
+.Ar to_name
+and outputs the
+converted text on standard output.
+.Pp
+The following options are available:
+.Bl -tag -width 0123
+.It Fl l
+Lists some of the available codeset names.
+.br
+Please, note that not all combinations of
+.Ar from_name
+and
+.Ar to_name
+are valid.
+.It Fl c
+(ignored)
+.It Fl s
+(ignored)
+.It Fl f
+Specifies the source codeset name as
+.Ar from_name .
+.It Fl t
+Specifies the destination codeset name as
+.Ar to_name .
+.El
+.Sh EXIT STATUS
+.Ex -std iconv
+.Sh AUTHOR
+.PP
+This implementation was programmed by
+Rich Felker in 2011.
+.br
+This manual page was written by The NetBSD
+Project and, then, adapted by
+Luiz Antônio Rangel for this implementation.
+.Sh SEE ALSO
+.Xr iconv 3
+.Sh STANDARDS
+.Nm
+conforms to
+.St -p1003.1-2008 .
