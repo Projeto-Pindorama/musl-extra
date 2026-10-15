@@ -1,9 +1,11 @@
 #!/bin/sh -eu
-# Copyright 2016-2018 Samuel Holland <samuel@sholland.org>
+#
+# Copyright © 2016-2018 Samuel Holland <samuel@sholland.org>
 # SPDX-License-Identifier: 0BSD
+#
 
 ME=${0##*/}
-VERSION=0.2.0
+VERSION=0.2.1
 
 echo() {
 	printf '%s\n' "$*"
@@ -15,14 +17,6 @@ echo_lines() {
 
 msg() {
 	printf >&2 '%s: %s\n' "$ME" "$*"
-}
-
-musl_arch() {
-	$ROOT/usr/lib/libc.so 2>&1 | sed -n 's/^musl libc (\(.*\))$/\1/p'
-}
-
-musl_version() {
-	$ROOT/usr/lib/libc.so 2>&1 | sed -n 's/^Version //p'
 }
 
 read_ldso_conf() {
@@ -94,7 +88,7 @@ while getopts ":c:C:Df:ilnNpr:vVX" OPTION; do
 		;;
 	r)
 		ROOT=$OPTARG
-		if ! test -x $ROOT/usr/lib/libc.so; then
+		if ! test -f "$ROOT$LDSO_CONF"; then
 			msg "${ROOT} does not appear to be a valid root directory"
 			exit 1
 		fi
@@ -125,10 +119,10 @@ while getopts ":c:C:Df:ilnNpr:vVX" OPTION; do
 done
 shift $((OPTIND-1))
 
-BANNER="ldconfig ${VERSION} for musl $(musl_version)"
+BANNER="ldconfig ${VERSION} for musl"
 LDSO_CACHE="$ROOT$LDSO_CACHE"
 LDSO_CONF="$ROOT$LDSO_CONF"
-LDSO_PATH="$ROOT/etc/ld-musl-$(musl_arch).path"
+LDSO_PATH="$ROOT/etc/ld-musl-@@ARCH@@.path"
 LDSO_PATH_TMP="$LDSO_PATH.$$"
 
 if $PRINT_VERSION; then
@@ -180,5 +174,5 @@ if $UPDATE_LINKS; then
 fi
 
 if $UPDATE_CACHE && test $# -gt 0; then
-	touch "$ROOT$LDSO_CACHE"
+	touch "$LDSO_CACHE"
 fi

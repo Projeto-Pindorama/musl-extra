@@ -11,5 +11,7 @@ team — read the copyright header of each file for more information.
 covered by the [BSD 2-Clause licence](./LICENCE/LICENCE.BSD-2-Clause.txt).  
 ``iconv`` was written by Rich Felker, and it's covered by the [GNU General
 Public Licence version 2](./LICENCE/LICENCE.GPL-2.0.txt).  
-``ldconfig`` was written by Samuel Holland, and it's covered by the [BSD 0-Clause
-licence](./LICENCE/LICENCE.0BSD.txt).
+``ldconfig`` was originally written by Samuel Holland (``smaeul``), but it
+received modifications to not depend on PaX Utils' ``scanelf`` by
+Luiz Antônio Rangel (``takusuman``); it's still covered by the
+[BSD 0-Clause licence](./LICENCE/LICENCE.0BSD.txt), though.
