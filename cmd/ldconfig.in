@@ -156,8 +156,8 @@ get_SONAME_from_lib() {
 	m=0
 	pos2=$sh_offset
 	while [ $m -lt $((sh_size/sh_entsize)) ]; do
-		dt_tag=$(clean_to_base10 $(od -An -t "u$EDyn_entry_size" \
-					-j$pos2 -N $EDyn_entry_size "$lib"))
+		EDyn=$(od -An -t "u$EDyn_entry_size" -j$pos2 -N $Elf_Dyn_size "$lib")
+		dt_tag=$(clean_to_base10 ${EDyn% *})
 		case $dt_tag in
 		$DT_SONAME)
 			$VERBOSE &&
@@ -166,15 +166,13 @@ get_SONAME_from_lib() {
 			# Just "poke" the file for dt_val if we're
 			# actually sure it contains the offset for
 			# SONAME.
-			dt_val=$(clean_to_base10 $(od -An -t "u$EDyn_entry_size" \
-						-j$((pos2 + $EDyn_entry_size)) \
-						-N $EDyn_entry_size "$lib"))
+			dt_val=$(clean_to_base10 ${EDyn##* })
 			break ;;
 		esac
 		pos2=$((pos2 + sh_entsize))
 		m=$((m + 1))
 	done
-	unset Elf_Dyn_size EDyn_entry_size dt_tag sh_offset pos2 m
+	unset EDyn Elf_Dyn_size EDyn_entry_size dt_tag sh_offset pos2 m
 
 	# taks note: sh_link, in the context of SHT_DYNAMIC, means
 	# that the header remits to a n-th section header table,
@@ -205,6 +203,11 @@ get_SONAME_from_lib() {
 	unset dt_val dynstr_sh_offset dynstr_sh_offset_pos \
 		e_shoff e_shentsize e_shnum SONAME_pos _SONAME
 }
+
+# Replaces 'scanelf -qS'.
+#get_SONAME_with_libname() {
+#	printf '%s  %s\n' $(get_SONAME_from_lib) $l
+#}
 
 LDSO_CACHE="/etc/ld.so.cache"
 LDSO_CONF="/etc/ld.so.conf"
