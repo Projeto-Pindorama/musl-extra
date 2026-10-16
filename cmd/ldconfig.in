@@ -71,13 +71,18 @@ get_SONAME_from_lib() {
 	# Get the e_indent section of the ELF file.
 	# taks note: As I said in the P.O.C. code, I know we could just use
 	# file(1) in this one, but, since we're already parsing it anyway...
-	set -- $(od -An -t c -N16 "$lib")
+	e_indent="$(od -An -t c -N16 "$lib")"
+	set -- $e_indent
 	case "$2$3$4" in
 	ELF) e_type=$(clean_to_base10 $(od -An -t u2 -j16 -N2 "$lib"))
 		if test $e_type -ne $ET_DYN; then
 			msg 'Not an ELF dynamic library.'
 			exit 1
-		fi ;;
+		fi
+		$VERBOSE && 
+			msg "$lib is a valid dynamic ELF file with magic: $e_indent"
+		unset e_indent
+		;;
 	*) msg 'Not a valid ELF file'
 		exit 1 ;;
 	esac
@@ -106,34 +111,44 @@ get_SONAME_from_lib() {
 	# ELF file; there are two entries of equal sizes on
 	# it, so we just divide the total size per two.
 	EDyn_entry_size=$((Elf_Dyn_size/2))
+	$VERBOSE && msg "$lib was built for $((Elf_Dyn_size*4))-bit"
 
 	n=0
 	pos=$e_shoff
 	while [ $n -lt $e_shnum ]; do
 		sh_type=$(clean_to_base10 $(od -An -t u4 -j$((pos + 4)) -N4 "$lib"))
 		case $sh_type in
-		# Found the ".dynamic" table.
 		$SHT_DYNAMIC)
+			$VERBOSE &&
+				msg "Found the '.dynamic' table of $lib at offset $pos, no. $n"
 			# Just bother to look further on the struct
 			# if it's actually from our interest.
 			# This shall apply even if we buffer it.
 			case $ELF_class in
 			$ELFCLASS32)
-				sh_offset=$(clean_to_base10 $(od -An -t u4 -j$((pos + 4*4)) -N4 "$lib"))
-				sh_size=$(clean_to_base10 $(od -An -t u4 -j$((pos + 5*4)) -N4 "$lib"))
-				sh_link=$(clean_to_base10 $(od -An -t u4 -j$((pos + 6*4)) -N4 "$lib"))
-				sh_info=$(clean_to_base10 $(od -An -t u4 -j$((pos + 7*4)) -N4 "$lib"))
-				sh_entsize=$(clean_to_base10 $(od -An -t u4 -j$((pos + 9*4)) -N4 "$lib"))
+				sh_offset=$(clean_to_base10 $(od -An -t u4 \
+						-j$((pos + 4*4)) -N4 "$lib"))
+				sh_size=$(clean_to_base10 $(od -An -t u4 \
+						-j$((pos + 5*4)) -N4 "$lib"))
+				sh_link=$(clean_to_base10 $(od -An -t u4 \
+						-j$((pos + 6*4)) -N4 "$lib"))
+				sh_entsize=$(clean_to_base10 $(od -An -t u4 \
+						-j$((pos + 9*4)) -N4 "$lib"))
 				;;
 			$ELFCLASS64)
-				sh_offset=$(clean_to_base10 $(od -An -t u8 -j$((pos + 2*4 + 2*8)) -N8 "$lib"))
-				sh_size=$(clean_to_base10 $(od -An -t u8 -j$((pos + 2*4 + 3*8)) -N8 "$lib"))
-				sh_link=$(clean_to_base10 $(od -An -t u4 -j$((pos + 2*4 + 4*8)) -N4 "$lib"))
-				sh_info=$(clean_to_base10 $(od -An -t u4 -j$((pos + 2*4 + 4*8 + 4)) -N4 "$lib"))
-				sh_entsize=$(clean_to_base10 $(od -An -t u8 -j$((pos + 2*4 + 4*8 + 2*4 + 8)) -N8 "$lib"))
+				sh_offset=$(clean_to_base10 $(od -An -t u8 \
+						-j$((pos + 2*4 + 2*8)) -N8 "$lib"))
+				sh_size=$(clean_to_base10 $(od -An -t u8 \
+						-j$((pos + 2*4 + 3*8)) -N8 "$lib"))
+				sh_link=$(clean_to_base10 $(od -An -t u4 \
+						-j$((pos + 2*4 + 4*8)) -N4 "$lib"))
+				sh_entsize=$(clean_to_base10 $(od -An -t u8 \
+						-j$((pos + 2*4 + 4*8 + 2*4 + 8)) -N8 "$lib"))
 				;;
 			esac
 
+			$VERBOSE &&
+				msg "Searching '.dynamic' entries on $lib for SONAME offset"
 			m=0
 			pos2=$sh_offset
 			while [ $m -lt $((sh_size/sh_entsize)) ]; do
@@ -141,6 +156,9 @@ get_SONAME_from_lib() {
 							-j$pos2 -N $EDyn_entry_size "$lib"))
 				case $dt_tag in
 				$DT_SONAME)
+					$VERBOSE &&
+						msg "Found entry with dt_tag=DT_SONAME at $pos2 on $lib"
+
 					# Just "poke" the file
 					# for dt_val if we're
 					# sure it contains the
@@ -153,6 +171,8 @@ get_SONAME_from_lib() {
 				pos2=$((pos2 + sh_entsize))
 				m=$((m + 1))
 			done
+			unset Elf_Dyn_size EDyn_entry_size dt_tag sh_offset pos2 m
+
 			# taks note: sh_link, in the context of SHT_DYNAMIC, means
 			# that the header remits to a n-th section header table,
 			# and that's why we have it times the sh_entsize plus
@@ -164,11 +184,22 @@ get_SONAME_from_lib() {
 			$ELFCLASS64)
 				dynstr_sh_offset_pos=$((dynstr_sh_pos + 2*4 + 2*8)) ;;
 			esac
+
+			# Get the SONAME position at the file (string section).
 			dynstr_sh_offset=$(clean_to_base10 $(od -An -t u4 \
 							-j$dynstr_sh_offset_pos -N4 "$lib"))
 			SONAME_pos=$((dynstr_sh_offset + dt_val))
-			_SONAME="$(od -An -tc -j$SONAME_pos -N256 "$lib" | sed 's/ //g')"
+			$VERBOSE && msg "Found SONAME for $lib at $SONAME_pos"
+
+			# Then just get the string, remove spaces (from the
+			# od(1) output) and trim down to the first '\0', which
+			# is the separator.
+			_SONAME="$(od -An -tc -j$SONAME_pos -N256 "$lib" |
+					sed -e ':a' -e 'N' -e '$!ba' -e 's/\n//g; s/ //g')"
 			SONAME=${_SONAME%%'\0'*}
+
+			unset dt_val dynstr_sh_offset dynstr_sh_offset_pos \
+				e_shoff e_shentsize e_shnum SONAME_pos _SONAME
 			break ;;
 		esac
 		pos=$((pos + e_shentsize))
