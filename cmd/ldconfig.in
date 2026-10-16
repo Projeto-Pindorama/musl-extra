@@ -81,7 +81,7 @@ get_SONAME_from_lib() {
 		fi
 		$VERBOSE &&
 			msg "$lib is a valid dynamic ELF file with magic: $e_indent"
-		unset e_indent ;;
+		unset e_indent e_type;;
 	*) msg 'Not a valid ELF file'
 		exit 1 ;;
 	esac
