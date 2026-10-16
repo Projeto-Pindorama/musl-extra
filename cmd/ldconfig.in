@@ -67,7 +67,7 @@ DT_SONAME=14
 # TODO: Implement some form of buffering, some day.
 get_SONAME_from_lib() {
 	lib="$1"
-	
+
 	# Get the e_indent section of the ELF file.
 	# taks note: As I said in the P.O.C. code, I know we could just use
 	# file(1) in this one, but, since we're already parsing it anyway...
@@ -79,15 +79,14 @@ get_SONAME_from_lib() {
 			msg 'Not an ELF dynamic library.'
 			exit 1
 		fi
-		$VERBOSE && 
+		$VERBOSE &&
 			msg "$lib is a valid dynamic ELF file with magic: $e_indent"
-		unset e_indent
-		;;
+		unset e_indent ;;
 	*) msg 'Not a valid ELF file'
 		exit 1 ;;
 	esac
 
-	# A "class" in the ELF header actually corresponds to the 
+	# A "class" in the ELF header actually corresponds to the
 	# "bit-wideness", if you will, of the architecture, while
 	# e_machine/EM_* consts correspond to the specific for
 	# which the ELF was compiled.
