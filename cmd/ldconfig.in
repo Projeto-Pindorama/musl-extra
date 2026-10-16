@@ -162,10 +162,6 @@ get_SONAME_from_lib() {
 		$DT_SONAME)
 			$VERBOSE &&
 				msg "Found entry with dt_tag=DT_SONAME at $pos2 on $lib"
-
-			# Just "poke" the file for dt_val if we're
-			# actually sure it contains the offset for
-			# SONAME.
 			dt_val=$(clean_to_base10 ${EDyn##* })
 			break ;;
 		esac
