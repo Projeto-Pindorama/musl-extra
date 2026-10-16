@@ -63,6 +63,7 @@ ELFCLASS64=2
 ET_DYN=3
 SHT_DYNAMIC=6
 DT_SONAME=14
+
 # TODO: Implement some form of buffering, some day.
 get_SONAME_from_lib() {
 	lib="$1"
@@ -72,13 +73,13 @@ get_SONAME_from_lib() {
 	# file(1) in this one, but, since we're already parsing it anyway...
 	set -- $(od -An -t c -N16 "$lib")
 	case "$2$3$4" in
-		ELF) e_type=$(clean_to_base10 $(od -An -t u2 -j16 -N2 "$lib"))
-			if test $e_type -ne $ET_DYN; then
-				msg 'Not an ELF dynamic library.'
-				exit 1
-			fi ;;
-		*) msg 'Not a valid ELF file'
-			exit 1 ;;
+	ELF) e_type=$(clean_to_base10 $(od -An -t u2 -j16 -N2 "$lib"))
+		if test $e_type -ne $ET_DYN; then
+			msg 'Not an ELF dynamic library.'
+			exit 1
+		fi ;;
+	*) msg 'Not a valid ELF file'
+		exit 1 ;;
 	esac
 
 	# A "class" in the ELF header actually corresponds to the 
@@ -87,18 +88,18 @@ get_SONAME_from_lib() {
 	# which the ELF was compiled.
 	ELF_class=$(clean_to_base10 $5) # e_ident[EI_CLASS]
 	case $ELF_class in
-		$ELFCLASS32)
-			e_shoff=$(clean_to_base10 $(od -An -t u4 -j$((16 + 2*2 + 3*4)) -N4 "$lib"))
-			e_shentsize=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 5*4 + 3*2)) -N2 "$lib"))
-			e_shnum=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 5*4 + 4*2)) -N2 "$lib"))
-			Elf_Dyn_size=8
-			;;
-		$ELFCLASS64)
-			e_shoff=$(clean_to_base10 $(od -An -t u8 -j$((16 + 2*2 + 4 + 2*8)) -N8 "$lib"))
-			e_shentsize=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 4 + 3*8 + 4 + 3*2)) -N2 "$lib"))
-			e_shnum=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 4 + 3*8 + 4 + 4*2)) -N2 "$lib"))
-			Elf_Dyn_size=16
-			;;
+	$ELFCLASS32)
+		e_shoff=$(clean_to_base10 $(od -An -t u4 -j$((16 + 2*2 + 3*4)) -N4 "$lib"))
+		e_shentsize=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 5*4 + 3*2)) -N2 "$lib"))
+		e_shnum=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 5*4 + 4*2)) -N2 "$lib"))
+		Elf_Dyn_size=8
+		;;
+	$ELFCLASS64)
+		e_shoff=$(clean_to_base10 $(od -An -t u8 -j$((16 + 2*2 + 4 + 2*8)) -N8 "$lib"))
+		e_shentsize=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 4 + 3*8 + 4 + 3*2)) -N2 "$lib"))
+		e_shnum=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 4 + 3*8 + 4 + 4*2)) -N2 "$lib"))
+		Elf_Dyn_size=16
+		;;
 	esac
 	# From now, already set the total size that the
 	# Elf{32,64}_Dyn struct will be actually using on the
@@ -111,64 +112,64 @@ get_SONAME_from_lib() {
 	while [ $n -lt $e_shnum ]; do
 		sh_type=$(clean_to_base10 $(od -An -t u4 -j$((pos + 4)) -N4 "$lib"))
 		case $sh_type in
-			# Found the ".dynamic" table.
-			$SHT_DYNAMIC)
-				# Just bother to look further on the struct
-				# if it's actually from our interest.
-				# This shall apply even if we buffer it.
-				case $ELF_class in
-					$ELFCLASS32)
-						sh_offset=$(clean_to_base10 $(od -An -t u4 -j$((pos + 4*4)) -N4 "$lib"))
-						sh_size=$(clean_to_base10 $(od -An -t u4 -j$((pos + 5*4)) -N4 "$lib"))
-						sh_link=$(clean_to_base10 $(od -An -t u4 -j$((pos + 6*4)) -N4 "$lib"))
-						sh_info=$(clean_to_base10 $(od -An -t u4 -j$((pos + 7*4)) -N4 "$lib"))
-						sh_entsize=$(clean_to_base10 $(od -An -t u4 -j$((pos + 9*4)) -N4 "$lib"))
-						;;
-					$ELFCLASS64)
-						sh_offset=$(clean_to_base10 $(od -An -t u8 -j$((pos + 2*4 + 2*8)) -N8 "$lib"))
-						sh_size=$(clean_to_base10 $(od -An -t u8 -j$((pos + 2*4 + 3*8)) -N8 "$lib"))
-						sh_link=$(clean_to_base10 $(od -An -t u4 -j$((pos + 2*4 + 4*8)) -N4 "$lib"))
-						sh_info=$(clean_to_base10 $(od -An -t u4 -j$((pos + 2*4 + 4*8 + 4)) -N4 "$lib"))
-						sh_entsize=$(clean_to_base10 $(od -An -t u8 -j$((pos + 2*4 + 4*8 + 2*4 + 8)) -N8 "$lib"))
-						;;
-				esac
+		# Found the ".dynamic" table.
+		$SHT_DYNAMIC)
+			# Just bother to look further on the struct
+			# if it's actually from our interest.
+			# This shall apply even if we buffer it.
+			case $ELF_class in
+			$ELFCLASS32)
+				sh_offset=$(clean_to_base10 $(od -An -t u4 -j$((pos + 4*4)) -N4 "$lib"))
+				sh_size=$(clean_to_base10 $(od -An -t u4 -j$((pos + 5*4)) -N4 "$lib"))
+				sh_link=$(clean_to_base10 $(od -An -t u4 -j$((pos + 6*4)) -N4 "$lib"))
+				sh_info=$(clean_to_base10 $(od -An -t u4 -j$((pos + 7*4)) -N4 "$lib"))
+				sh_entsize=$(clean_to_base10 $(od -An -t u4 -j$((pos + 9*4)) -N4 "$lib"))
+				;;
+			$ELFCLASS64)
+				sh_offset=$(clean_to_base10 $(od -An -t u8 -j$((pos + 2*4 + 2*8)) -N8 "$lib"))
+				sh_size=$(clean_to_base10 $(od -An -t u8 -j$((pos + 2*4 + 3*8)) -N8 "$lib"))
+				sh_link=$(clean_to_base10 $(od -An -t u4 -j$((pos + 2*4 + 4*8)) -N4 "$lib"))
+				sh_info=$(clean_to_base10 $(od -An -t u4 -j$((pos + 2*4 + 4*8 + 4)) -N4 "$lib"))
+				sh_entsize=$(clean_to_base10 $(od -An -t u8 -j$((pos + 2*4 + 4*8 + 2*4 + 8)) -N8 "$lib"))
+				;;
+			esac
 
-				m=0
-				pos2=$sh_offset
-				while [ $m -lt $((sh_size/sh_entsize)) ]; do
-					dt_tag=$(clean_to_base10 $(od -An -t "u$EDyn_entry_size" \
-								-j$pos2 -N $EDyn_entry_size "$lib"))
-					case $dt_tag in
-						$DT_SONAME)
-							# Just "poke" the file
-							# for dt_val if we're
-							# sure it contains the
-							# offset for SONAME.
-							dt_val=$(clean_to_base10 $(od -An -t "u$EDyn_entry_size" \
-										-j$((pos2 + $EDyn_entry_size)) \
-										-N $EDyn_entry_size "$lib"))
-							break ;;
-					esac
-					pos2=$((pos2 + sh_entsize))
-					m=$((m + 1))
-				done
-				# taks note: sh_link, in the context of SHT_DYNAMIC, means
-				# that the header remits to a n-th section header table,
-				# and that's why we have it times the sh_entsize plus
-				# the e_shoff.
-				dynstr_sh_pos=$((e_shoff + (sh_link * e_shentsize)))
-				case $ELF_class in
-					$ELFCLASS32)
-						dynstr_sh_offset_pos=$((dynstr_sh_pos + 4*4)) ;;
-					$ELFCLASS64)
-						dynstr_sh_offset_pos=$((dynstr_sh_pos + 2*4 + 2*8)) ;;
+			m=0
+			pos2=$sh_offset
+			while [ $m -lt $((sh_size/sh_entsize)) ]; do
+				dt_tag=$(clean_to_base10 $(od -An -t "u$EDyn_entry_size" \
+							-j$pos2 -N $EDyn_entry_size "$lib"))
+				case $dt_tag in
+				$DT_SONAME)
+					# Just "poke" the file
+					# for dt_val if we're
+					# sure it contains the
+					# offset for SONAME.
+					dt_val=$(clean_to_base10 $(od -An -t "u$EDyn_entry_size" \
+								-j$((pos2 + $EDyn_entry_size)) \
+								-N $EDyn_entry_size "$lib"))
+					break ;;
 				esac
-				dynstr_sh_offset=$(clean_to_base10 $(od -An -t u4 \
-								-j$dynstr_sh_offset_pos -N4 "$lib"))
-				SONAME_pos=$((dynstr_sh_offset + dt_val))
-				_SONAME="$(od -An -tc -j$SONAME_pos -N256 "$lib" | sed 's/ //g')"
-				SONAME=${_SONAME%%'\0'*}
-				break ;;
+				pos2=$((pos2 + sh_entsize))
+				m=$((m + 1))
+			done
+			# taks note: sh_link, in the context of SHT_DYNAMIC, means
+			# that the header remits to a n-th section header table,
+			# and that's why we have it times the sh_entsize plus
+			# the e_shoff.
+			dynstr_sh_pos=$((e_shoff + (sh_link * e_shentsize)))
+			case $ELF_class in
+			$ELFCLASS32)
+				dynstr_sh_offset_pos=$((dynstr_sh_pos + 4*4)) ;;
+			$ELFCLASS64)
+				dynstr_sh_offset_pos=$((dynstr_sh_pos + 2*4 + 2*8)) ;;
+			esac
+			dynstr_sh_offset=$(clean_to_base10 $(od -An -t u4 \
+							-j$dynstr_sh_offset_pos -N4 "$lib"))
+			SONAME_pos=$((dynstr_sh_offset + dt_val))
+			_SONAME="$(od -An -tc -j$SONAME_pos -N256 "$lib" | sed 's/ //g')"
+			SONAME=${_SONAME%%'\0'*}
+			break ;;
 		esac
 		pos=$((pos + e_shentsize))
 		n=$(( n + 1 ))
