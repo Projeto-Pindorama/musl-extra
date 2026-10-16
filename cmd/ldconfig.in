@@ -145,66 +145,65 @@ get_SONAME_from_lib() {
 						-j$((pos + 2*4 + 4*8 + 2*4 + 8)) -N8 "$lib"))
 				;;
 			esac
-
-			$VERBOSE &&
-				msg "Searching '.dynamic' entries on $lib for SONAME offset"
-			m=0
-			pos2=$sh_offset
-			while [ $m -lt $((sh_size/sh_entsize)) ]; do
-				dt_tag=$(clean_to_base10 $(od -An -t "u$EDyn_entry_size" \
-							-j$pos2 -N $EDyn_entry_size "$lib"))
-				case $dt_tag in
-				$DT_SONAME)
-					$VERBOSE &&
-						msg "Found entry with dt_tag=DT_SONAME at $pos2 on $lib"
-
-					# Just "poke" the file
-					# for dt_val if we're
-					# sure it contains the
-					# offset for SONAME.
-					dt_val=$(clean_to_base10 $(od -An -t "u$EDyn_entry_size" \
-								-j$((pos2 + $EDyn_entry_size)) \
-								-N $EDyn_entry_size "$lib"))
-					break ;;
-				esac
-				pos2=$((pos2 + sh_entsize))
-				m=$((m + 1))
-			done
-			unset Elf_Dyn_size EDyn_entry_size dt_tag sh_offset pos2 m
-
-			# taks note: sh_link, in the context of SHT_DYNAMIC, means
-			# that the header remits to a n-th section header table,
-			# and that's why we have it times the sh_entsize plus
-			# the e_shoff.
-			dynstr_sh_pos=$((e_shoff + (sh_link * e_shentsize)))
-			case $ELF_class in
-			$ELFCLASS32)
-				dynstr_sh_offset_pos=$((dynstr_sh_pos + 4*4)) ;;
-			$ELFCLASS64)
-				dynstr_sh_offset_pos=$((dynstr_sh_pos + 2*4 + 2*8)) ;;
-			esac
-
-			# Get the SONAME position at the file (string section).
-			dynstr_sh_offset=$(clean_to_base10 $(od -An -t u4 \
-							-j$dynstr_sh_offset_pos -N4 "$lib"))
-			SONAME_pos=$((dynstr_sh_offset + dt_val))
-			$VERBOSE && msg "Found SONAME for $lib at $SONAME_pos"
-
-			# Then just get the string, remove spaces (from the
-			# od(1) output) and trim down to the first '\0', which
-			# is the separator.
-			_SONAME="$(od -An -tc -j$SONAME_pos -N256 "$lib" |
-					sed -e ':a' -e 'N' -e '$!ba' -e 's/\n//g; s/ //g')"
-			SONAME=${_SONAME%%'\0'*}
-
-			unset dt_val dynstr_sh_offset dynstr_sh_offset_pos \
-				e_shoff e_shentsize e_shnum SONAME_pos _SONAME
 			break ;;
 		esac
 		pos=$((pos + e_shentsize))
 		n=$(( n + 1 ))
 	done
+	unset pos n
+
+	$VERBOSE && msg "Searching '.dynamic' entries on $lib for SONAME offset"
+	m=0
+	pos2=$sh_offset
+	while [ $m -lt $((sh_size/sh_entsize)) ]; do
+		dt_tag=$(clean_to_base10 $(od -An -t "u$EDyn_entry_size" \
+					-j$pos2 -N $EDyn_entry_size "$lib"))
+		case $dt_tag in
+		$DT_SONAME)
+			$VERBOSE &&
+				msg "Found entry with dt_tag=DT_SONAME at $pos2 on $lib"
+
+			# Just "poke" the file for dt_val if we're
+			# actually sure it contains the offset for
+			# SONAME.
+			dt_val=$(clean_to_base10 $(od -An -t "u$EDyn_entry_size" \
+						-j$((pos2 + $EDyn_entry_size)) \
+						-N $EDyn_entry_size "$lib"))
+			break ;;
+		esac
+		pos2=$((pos2 + sh_entsize))
+		m=$((m + 1))
+	done
+	unset Elf_Dyn_size EDyn_entry_size dt_tag sh_offset pos2 m
+
+	# taks note: sh_link, in the context of SHT_DYNAMIC, means
+	# that the header remits to a n-th section header table,
+	# and that's why we have it times the sh_entsize plus
+	# the e_shoff.
+	dynstr_sh_pos=$((e_shoff + (sh_link * e_shentsize)))
+	case $ELF_class in
+	$ELFCLASS32)
+		dynstr_sh_offset_pos=$((dynstr_sh_pos + 4*4)) ;;
+	$ELFCLASS64)
+		dynstr_sh_offset_pos=$((dynstr_sh_pos + 2*4 + 2*8)) ;;
+	esac
+
+	# Get the SONAME position at the file (string section).
+	dynstr_sh_offset=$(clean_to_base10 $(od -An -t u4 \
+					-j$dynstr_sh_offset_pos -N4 "$lib"))
+	SONAME_pos=$((dynstr_sh_offset + dt_val))
+	$VERBOSE && msg "Found SONAME for $lib at $SONAME_pos"
+
+	# Then just get the string, remove spaces (from the
+	# od(1) output), trim down to the first '\0', which
+	# is the separator and print it.
+	_SONAME="$(od -An -tc -j$SONAME_pos -N256 "$lib" |
+			sed -e ':a' -e 'N' -e '$!ba' -e 's/\n//g; s/ //g')"
+	SONAME=${_SONAME%%'\0'*}
 	echo -n "$SONAME"
+
+	unset dt_val dynstr_sh_offset dynstr_sh_offset_pos \
+		e_shoff e_shentsize e_shnum SONAME_pos _SONAME
 }
 
 LDSO_CACHE="/etc/ld.so.cache"
