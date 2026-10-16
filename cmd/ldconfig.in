@@ -1,11 +1,12 @@
 #!/bin/sh -eu
 #
 # Copyright © 2016-2018 Samuel Holland <samuel@sholland.org>
+# Copyright © 2026 Luiz Antônio Rangel (takusuman) <luiz.antonio.rangel@outlook.com.br>
 # SPDX-License-Identifier: 0BSD
 #
 
 ME=${0##*/}
-VERSION=0.2.1
+VERSION=0.2.2
 
 echo() {
 	printf '%s\n' "$*"
@@ -50,6 +51,45 @@ read_ldso_conf() {
 tokenize() {
 	echo "$*" | sed 's/=libc[456]//g;y/:,/  /' | xargs
 }
+
+clean_to_base10() echo -n $(( $(echo -n $1 | sed 's/^0*//g') ))
+
+# TODO: Implement some form of buffering, some day.
+get_SONAME_from_lib() {
+	lib="$1"
+
+	# Get the e_indent section of the ELF file.
+	# taks note: As I said in the P.O.C. code, I know we could just use
+	# file(1) in this one, but, since we're already parsing it anyway...
+	case "$(od -An -t c -N16 "$lib" | sed 's/ //g')" in
+		*'ELF'*)
+			e_type=$(clean_to_base10 $(od -An -t c -N16 "$lib"))
+			if test $e_type -ne $ET_DYN; then
+				msg 'Not an ELF dynamic library.'
+				exit 1
+			fi ;;
+		*) msg 'Not a valid ELF file'
+			exit 1 ;;
+	esac
+
+	e_machine=$(cleanUBase10 $(od -An -t u2 -j$((16 + 2)) -N2 "$lib"))
+	case $e_machine in
+		$EM_386|$EM_ARM)
+			e_shoff=$(cleanUBase10 $(od -An -t u4 -j$((16 + 2*2 + 3*4)) -N4 "$lib"))
+			e_shentsize=$(cleanUBase10 $(od -An -t u2 -j$((16 + 2*2 + 5*4 + 3*2)) -N2 "$lib"))
+			e_shnum=$(cleanUBase10 $(od -An -t u2 -j$((16 + 2*2 + 5*4 + 4*2)) -N2 "$lib"))
+			;;
+		$EM_X86_64|$EM_AARCH64)
+			e_shoff=$(cleanUBase10 $(od -An -t u8 -j$((16 + 2*2 + 4 + 2*8)) -N8 "$lib"))
+			e_shentsize=$(cleanUBase10 $(od -An -t u2 -j$((16 + 2*2 + 4 + 3*8 + 4 + 3*2)) -N2 "$lib"))
+			e_shnum=$(cleanUBase10 $(od -An -t u2 -j$((16 + 2*2 + 4 + 3*8 + 4 + 4*2)) -N2 "$lib"))
+			;;
+		*) msg "Architecture $e_machine not listed for now."
+			exit
+			;;
+	esac
+}
+
 
 LDSO_CACHE="/etc/ld.so.cache"
 LDSO_CONF="/etc/ld.so.conf"
