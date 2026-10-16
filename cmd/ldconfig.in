@@ -52,7 +52,10 @@ tokenize() {
 	echo "$*" | sed 's/=libc[456]//g;y/:,/  /' | xargs
 }
 
-clean_to_base10() echo -n $(( $(echo -n $1 | sed 's/^0*//g') ))
+clean_to_base10() {
+	n=$(echo -n $1 | sed 's/^0*//g')
+	echo -n $(( ${n:-0} ))
+}
 
 # Some ELF-related constants.
 ELFCLASS32=1
@@ -88,22 +91,19 @@ get_SONAME_from_lib() {
 			e_shoff=$(clean_to_base10 $(od -An -t u4 -j$((16 + 2*2 + 3*4)) -N4 "$lib"))
 			e_shentsize=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 5*4 + 3*2)) -N2 "$lib"))
 			e_shnum=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 5*4 + 4*2)) -N2 "$lib"))
+			Elf_Dyn_size=8
 			;;
 		$ELFCLASS64)
 			e_shoff=$(clean_to_base10 $(od -An -t u8 -j$((16 + 2*2 + 4 + 2*8)) -N8 "$lib"))
 			e_shentsize=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 4 + 3*8 + 4 + 3*2)) -N2 "$lib"))
 			e_shnum=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 4 + 3*8 + 4 + 4*2)) -N2 "$lib"))
+			Elf_Dyn_size=16
 			;;
 	esac
 	# From now, already set the total size that the
-	# Elf{32,64}_Dyn struct will be actually using
-	# on the ELF file; there are two entries of
-	# equal sizes on it, so we just divide the
-	# total size per two.
-	case $ELF_class in
-		$ELFCLASS32) Elf_Dyn_size=8 ;;
-		$ELFCLASS64) Elf_Dyn_size=16 ;;
-	esac
+	# Elf{32,64}_Dyn struct will be actually using on the
+	# ELF file; there are two entries of equal sizes on
+	# it, so we just divide the total size per two.
 	EDyn_entry_size=$((Elf_Dyn_size/2))
 
 	n=0
