@@ -83,7 +83,7 @@ get_SONAME_from_lib() {
 			msg "$lib is not an ELF dynamic library"
 			exit 1
 		fi
-		$VERBOSE &&
+		$DEBUG &&
 			msg "$lib is a valid dynamic ELF file with magic: $e_indent"
 		unset e_indent e_type ;;
 	*) msg 'Not a valid ELF file'
@@ -112,7 +112,8 @@ get_SONAME_from_lib() {
 	# ELF file; there are two entries of equal sizes on
 	# it, so we just divide the total size per two.
 	EDyn_entry_size=$((Elf_Dyn_size/2))
-	$VERBOSE && msg "$lib was built for $((Elf_Dyn_size*4))-bit"
+	$DEBUG &&
+		msg "$lib was built for $((Elf_Dyn_size*4))-bit (e_ident[EI_CLASS]=$5)"
 
 	n=0
 	pos=$e_shoff
@@ -120,8 +121,8 @@ get_SONAME_from_lib() {
 		sh_type=$(clean_to_base10 $(od -An -t u4 -j$((pos + 4)) -N4 "$lib"))
 		case $sh_type in
 		$SHT_DYNAMIC)
-			$VERBOSE &&
-				msg "Found the '.dynamic' table of $lib at offset $pos, no. $n"
+			$DEBUG &&
+				msg "Found the '.dynamic' header table of $lib at offset $pos, no. $n"
 			# Just bother to look further on the struct
 			# if it's actually from our interest.
 			# This shall apply even if we buffer it.
@@ -154,7 +155,7 @@ get_SONAME_from_lib() {
 	done
 	unset pos n
 
-	$VERBOSE && msg "Searching '.dynamic' entries on $lib for SONAME offset"
+	$DEBUG && msg "Searching '.dynamic' entries (at $sh_offset) on $lib for SONAME offset"
 	m=0
 	pos2=$sh_offset
 	while [ $m -lt $((sh_size/sh_entsize)) ]; do
@@ -162,7 +163,7 @@ get_SONAME_from_lib() {
 		dt_tag=$(clean_to_base10 ${EDyn% *})
 		case $dt_tag in
 		$DT_SONAME)
-			$VERBOSE &&
+			$DEBUG &&
 				msg "Found entry with dt_tag=DT_SONAME at $pos2 on $lib"
 			dt_val=$(clean_to_base10 ${EDyn##* })
 			break ;;
@@ -188,7 +189,7 @@ get_SONAME_from_lib() {
 	dynstr_sh_offset=$(clean_to_base10 $(od -An -t u4 \
 					-j$dynstr_sh_offset_pos -N4 "$lib"))
 	SONAME_pos=$((dynstr_sh_offset + dt_val))
-	$VERBOSE && msg "Found SONAME for $lib at $SONAME_pos"
+	$DEBUG && msg "Found SONAME for $lib at $SONAME_pos"
 
 	# Then just get the string, remove spaces (from the
 	# od(1) output), trim down to the first '\0', which
@@ -248,6 +249,10 @@ ROOT=
 UPDATE_CACHE=true
 UPDATE_LINKS=true
 VERBOSE=false
+
+# This will be enabled as an environment
+# variable, not as an argument.
+DEBUG=${DEBUG:=false}
 
 while getopts ":c:C:Df:ilnNpr:vVX" OPTION; do
 	case "$OPTION" in
