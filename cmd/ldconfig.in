@@ -53,8 +53,8 @@ tokenize() {
 }
 
 clean_to_base10() {
-	n=$(echo -n $1 | sed 's/^0*//g')
-	echo -n $(( ${n:-0} ))
+	n=$(echo $1 | sed 's/^0*//g')
+	echo $(( ${n:-0} ))
 }
 
 # Some ELF-related constants.
@@ -198,7 +198,7 @@ get_SONAME_from_lib() {
 	_SONAME="$(od -An -tc -j$SONAME_pos -N$nSONAME "$lib" |
 			sed -e ':a' -e 'N' -e '$!ba' -e 's/\n//g; s/ //g')"
 	SONAME=${_SONAME%%'\0'*}
-	echo -n "$SONAME"
+	echo "$SONAME"
 
 	unset dt_val dynstr_sh_offset dynstr_sh_offset_pos \
 		e_shoff e_shentsize e_shnum SONAME_pos _SONAME
