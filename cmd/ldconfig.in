@@ -64,6 +64,10 @@ ET_DYN=3
 SHT_DYNAMIC=6
 DT_SONAME=14
 
+# Use a "trusted" directory as a base for the NAME_MAX,
+# which would be the limit for the SONAME length.
+nSONAME=$(clean_to_base10 $(getconf NAME_MAX /lib))
+
 # TODO: Implement some form of buffering, some day.
 get_SONAME_from_lib() {
 	lib="$1"
@@ -76,7 +80,7 @@ get_SONAME_from_lib() {
 	case "$2$3$4" in
 	ELF) e_type=$(clean_to_base10 $(od -An -t u2 -j16 -N2 "$lib"))
 		if test $e_type -ne $ET_DYN; then
-			msg 'Not an ELF dynamic library.'
+			msg "$lib is not an ELF dynamic library"
 			exit 1
 		fi
 		$VERBOSE &&
@@ -191,7 +195,7 @@ get_SONAME_from_lib() {
 	# Then just get the string, remove spaces (from the
 	# od(1) output), trim down to the first '\0', which
 	# is the separator and print it.
-	_SONAME="$(od -An -tc -j$SONAME_pos -N256 "$lib" |
+	_SONAME="$(od -An -tc -j$SONAME_pos -N$nSONAME "$lib" |
 			sed -e ':a' -e 'N' -e '$!ba' -e 's/\n//g; s/ //g')"
 	SONAME=${_SONAME%%'\0'*}
 	echo -n "$SONAME"
@@ -201,9 +205,40 @@ get_SONAME_from_lib() {
 }
 
 # Replaces 'scanelf -qS'.
-#get_SONAME_with_libname() {
-#	printf '%s  %s\n' $(get_SONAME_from_lib) $l
-#}
+get_SONAME_with_libname() {
+	lookup="$1"
+	if test -d "$lookup"; then
+		(cd "$lookup";
+		for llx in *; do
+			if [ -L "$llx" ]; then
+				lsout="$(ls -dl -- "$llx")"
+				lldst="${lsout#*" $llx -> "}"
+				case "$lldst" in
+				*'../'*)
+					_lldst="$lookup/$lldst"
+					llfdst="${lldst##*/}"
+					lldirdst="$(cd "${_lldst%/*}"; pwd)"
+					case "$lldirdst" in
+					"${lookup%*/}")
+						unset lldst
+						lldst="${lookup%*/}/$llfdst"
+						unset _lldst llfdst lldirdst ;;
+					*) continue ;;
+					esac ;;
+				*) test -e "./$lldst" &&
+					lldst="${lookup%*/}/$lldst" ;;
+				esac
+				lSONAME="$(get_SONAME_from_lib "$llx")"
+				test -z "$lSONAME" && continue
+				printf '%s  %s\n' "$lSONAME" "$lldst"
+			fi
+		done)
+	else
+		lSONAME=$(get_SONAME_from_lib "$lookup")
+		test -n $lSONAME &&
+			printf '%s  %s\n' $lSONAME "$lookup"
+	fi
+}
 
 LDSO_CACHE="/etc/ld.so.cache"
 LDSO_CONF="/etc/ld.so.conf"
@@ -291,7 +326,7 @@ $VERBOSE && echo "$BANNER"
 
 if $LIBRARY_MODE; then
 	for lib; do
-		soname=$(scanelf -qS "$ROOT$lib")
+		soname=$(get_SONAME_with_libname "$ROOT$lib")
 		soname=${soname%% *}
 	done
 	exit 0
@@ -318,7 +353,7 @@ if $UPDATE_LINKS; then
 			continue
 		fi
 		$VERBOSE && msg "Scanning ${ROOT}${dir}"
-		scanelf -qS "$ROOT$dir" | while read soname file; do
+		get_SONAME_with_libname "$ROOT$dir" | while read soname file; do
 			link=${file%/*}/$soname
 			test -f "$link" && continue
 			$VERBOSE && msg "Creating link ${link}"
