@@ -85,7 +85,7 @@ get_SONAME_from_lib() {
 		fi
 		$VERBOSE &&
 			msg "$lib is a valid dynamic ELF file with magic: $e_indent"
-		unset e_indent e_type;;
+		unset e_indent e_type ;;
 	*) msg 'Not a valid ELF file'
 		exit 1 ;;
 	esac
@@ -100,14 +100,12 @@ get_SONAME_from_lib() {
 		e_shoff=$(clean_to_base10 $(od -An -t u4 -j$((16 + 2*2 + 3*4)) -N4 "$lib"))
 		e_shentsize=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 5*4 + 3*2)) -N2 "$lib"))
 		e_shnum=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 5*4 + 4*2)) -N2 "$lib"))
-		Elf_Dyn_size=8
-		;;
+		Elf_Dyn_size=8 ;;
 	$ELFCLASS64)
 		e_shoff=$(clean_to_base10 $(od -An -t u8 -j$((16 + 2*2 + 4 + 2*8)) -N8 "$lib"))
 		e_shentsize=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 4 + 3*8 + 4 + 3*2)) -N2 "$lib"))
 		e_shnum=$(clean_to_base10 $(od -An -t u2 -j$((16 + 2*2 + 4 + 3*8 + 4 + 4*2)) -N2 "$lib"))
-		Elf_Dyn_size=16
-		;;
+		Elf_Dyn_size=16 ;;
 	esac
 	# From now, already set the total size that the
 	# Elf{32,64}_Dyn struct will be actually using on the
