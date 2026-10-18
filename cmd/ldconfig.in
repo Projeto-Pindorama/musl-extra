@@ -52,6 +52,14 @@ tokenize() {
 	echo "$*" | sed 's/=libc[456]//g;y/:,/  /' | xargs
 }
 
+safe_bool() {
+	if test "$@" \= true; then
+		echo true
+	else
+		echo false
+	fi
+}
+
 clean_to_base10() {
 	n=$(echo $1 | sed 's/^0*//g')
 	echo $(( ${n:-0} ))
@@ -248,11 +256,12 @@ PRINT_VERSION=false
 ROOT=
 UPDATE_CACHE=true
 UPDATE_LINKS=true
-VERBOSE=false
 
 # This will be enabled as an environment
 # variable, not as an argument.
-DEBUG=${DEBUG:=false}
+# Also, debug implies on verbose.
+DEBUG=$(safe_bool ${DEBUG:=false})
+VERBOSE=$DEBUG
 
 while getopts ":c:C:Df:ilnNpr:vVX" OPTION; do
 	case "$OPTION" in
