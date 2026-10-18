@@ -4,17 +4,25 @@ DEFUSRBIN ?= /usr/bin/
 DEFSBIN ?= /sbin/
 MANDIR ?= /usr/share/man/
 STATIC_LIBDIR ?= /usr/lib/
+LDSO	:= $(ROOT)/lib/libc.so
 
 # Programs
 CC ?= gcc
 AR ?= ar
 INSTALL ?= /bin/install
+STRINGS	?= $(CROSS_COMPILE)strings
+ARCH	:= $(shell $(STRINGS) $(LDSO) |& sed -n 's/^musl libc (\(.*\))$$/\1/p')
 
 # Flags
 LDFLAGS ?= -static
 LIBS ?= -L/usr/lib -lc
 
-all: libssp-nonshared getconf getent iconv
+all: libssp-nonshared getconf getent iconv ldconfig
+
+ldconfig: cmd/ldconfig.in
+	sed 's/@@ARCH@@/$(ARCH)/g' $< > $@.tmp || rm -f $@.tmp
+	chmod 755 $@.tmp
+	mv $@.tmp $@
 
 getconf: getconf.o
 	$(LD) $(LDFLAGS) $(LIBS) getconf.o -o getconf 
@@ -42,15 +50,15 @@ __stack_chk_fail_local.o: lib/__stack_chk_fail_local.c
 
 install: install-libssp install-progs 
 
-install-progs: getconf getent iconv cmd/ldconfig
+install-progs: getconf getent iconv ldconfig
 	for program in getconf getent iconv ; do \
 	        $(INSTALL) -c -m 755 $$program $(ROOT)$(DEFUSRBIN) ; \
 		$(INSTALL) -c -m 644 ./man/$$program.1 $(ROOT)$(MANDIR)/man1/ ; \
 	done
-	$(INSTALL) -c -m 755 cmd/ldconfig $(ROOT)$(DEFSBIN)
+	$(INSTALL) -c -m 755 ldconfig $(ROOT)$(DEFSBIN)
 
 install-libssp: libssp-nonshared
 	$(INSTALL) -c -m 664 ./libssp_nonshared.a $(ROOT)$(STATIC_LIBDIR)
 
 clean:
-	rm -f *.o *.a getconf getent iconv *~
+	rm -f *.o *.a ldconfig getconf getent iconv *~
